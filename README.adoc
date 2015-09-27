@@ -4,8 +4,9 @@ Inherited object for use NMEA2000 library for Arduino Boards with
 MCP2515 CAN bus controller. See also NMEA2000 library.
 
 To use this library, you will also need NMEA2000 library and
-mcp_can library, which you can download from
-https://github.com/Seeed-Studio/CAN_BUS_Shield
+developed version of mcp_can library, which you can download from
+https://github.com/peppeve/CAN_BUS_Shield until changes has been implemented
+to original https://github.com/Seeed-Studio/CAN_BUS_Shield library.
 
 == License ==
 

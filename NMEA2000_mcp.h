@@ -27,7 +27,10 @@ based setup. See also NMEA2000 library.
 #ifndef _NMEA2000_MCP_H_
 #define _NMEA2000_MCP_H_
 
-#include <mcp_can.h>  // https://github.com/Seeed-Studio/CAN_BUS_Shield
+// CAN_BUS_shield libraries will be originally found on https://github.com/Seeed-Studio/CAN_BUS_Shield
+// That does not work completely with N2k or with Maple mini. So there is developed
+// branch found on https://github.com/peppeve/CAN_BUS_Shield 
+#include <mcp_can.h>
 #include <NMEA2000.h> 
 #include <N2kMsg.h>
 
@@ -35,14 +38,16 @@ class tNMEA2000_mcp : public tNMEA2000
 {
 private:
   MCP_CAN N2kCAN;
-
+  unsigned char N2k_CAN_CS_pin;
+  unsigned char N2k_CAN_clockset;
+  
 protected:
     bool CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf, bool wait_sent=true);
     bool CANOpen();
     bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf);
     
 public:
-    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin);
+    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz);
 };
 
 #endif

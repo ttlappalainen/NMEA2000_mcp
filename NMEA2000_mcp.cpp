@@ -24,7 +24,9 @@ Author: Timo Lappalainen
 #include <NMEA2000_mcp.h> 
 
 //*****************************************************************************
-tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin) : N2kCAN(_N2k_CAN_CS_pin), tNMEA2000() {
+tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset) : N2kCAN(), tNMEA2000() {
+  N2k_CAN_CS_pin=_N2k_CAN_CS_pin;
+  N2k_CAN_clockset=_N2k_CAN_clockset;
 }
 
 //*****************************************************************************
@@ -38,7 +40,8 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
 
 //*****************************************************************************
 bool tNMEA2000_mcp::CANOpen() {
-    return (N2kCAN.begin(CAN_250KBPS)==CAN_OK);
+    N2kCAN.init_CS(N2k_CAN_CS_pin);
+    return (N2kCAN.begin(CAN_250KBPS,N2k_CAN_clockset)==CAN_OK);
 }
 
 //*****************************************************************************
