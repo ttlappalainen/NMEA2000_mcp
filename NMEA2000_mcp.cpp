@@ -24,7 +24,7 @@ Author: Timo Lappalainen
 #include <NMEA2000_mcp.h> 
 
 //*****************************************************************************
-tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset) : N2kCAN(), tNMEA2000() {
+tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset) : tNMEA2000(), N2kCAN() {
   N2k_CAN_CS_pin=_N2k_CAN_CS_pin;
   N2k_CAN_clockset=_N2k_CAN_clockset;
 }
