@@ -34,20 +34,28 @@ based setup. See also NMEA2000 library.
 #include <NMEA2000.h> 
 #include <N2kMsg.h>
 
+// Define size of 
+#ifndef MCP_CAN_RX_BUFFER_SIZE
+#define MCP_CAN_RX_BUFFER_SIZE 50 
+#endif
+
 class tNMEA2000_mcp : public tNMEA2000
 {
 private:
   MCP_CAN N2kCAN;
   unsigned char N2k_CAN_CS_pin;
   unsigned char N2k_CAN_clockset;
+  unsigned char N2k_CAN_int_pin;
+  bool IsOpen;
   
 protected:
     bool CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf, bool wait_sent=true);
     bool CANOpen();
     bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf);
+    bool UseInterrupt() { return N2k_CAN_int_pin!=0xff; }
     
 public:
-    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz);
+    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz, unsigned char _N2k_CAN_int_pin = 0xff);
 };
 
 #endif
