@@ -1,7 +1,7 @@
 /* 
 NMEA2000_mcp.cpp
 
-2015 Copyright (c) Kave Oy, www.kave.fi  All right reserved.
+2015-2016 Copyright (c) Kave Oy, www.kave.fi  All right reserved.
 
 Author: Timo Lappalainen
 
@@ -73,7 +73,11 @@ tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_C
 bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf, bool wait_sent) {
   INT8U result;
 
+    // Also sending should be changed to be done by interrupt. This requires modifications for mcp_can.
+    uint8_t SaveSREG = SREG;   // save interrupt flag
+    if ( UseInterrupt() ) cli();   // disable interrupts
     result=N2kCAN.sendMsgBuf(id, 1, len, buf,wait_sent);
+    if ( UseInterrupt() ) SREG = SaveSREG;   // restore the interrupt flag
 //    Serial.println(result);
     return (result==CAN_OK); 
 }
@@ -87,7 +91,6 @@ bool tNMEA2000_mcp::CANOpen() {
     N2kCAN.init_CS(N2k_CAN_CS_pin);
     IsOpen=(N2kCAN.begin(CAN_250KBPS,N2k_CAN_clockset)==CAN_OK);
     
-    Serial.println((unsigned long)pN2kCAN,HEX);
     if (IsOpen && UseInterrupt() ) {
       rx_buffer_read=0;
       rx_buffer_write=0;

@@ -8,6 +8,11 @@ developed version of mcp_can library, which you can download from
 https://github.com/peppeve/CAN_BUS_Shield until changes has been implemented
 to original https://github.com/Seeed-Studio/CAN_BUS_Shield library.
 
+== Changes ==
+02.02.2016 Fix for sending. Interrupt has to be disabled during send, if interrupt is in use.</br>
+
+23.01.2016 Interrupt support for receiving.
+
 == License ==
 
 2015 Copyright (c) Kave Oy, www.kave.fi  All right reserved.
