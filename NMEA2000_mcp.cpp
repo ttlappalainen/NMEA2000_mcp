@@ -32,7 +32,8 @@ typedef struct tCANFrame {
 
 bool CanInUse=false; 
 MCP_CAN *pN2kCAN=0;
-volatile tCANFrame rx_frame_buff[MCP_CAN_RX_BUFFER_SIZE];
+volatile tCANFrame *rx_frame_buff=0;
+volatile uint16_t rx_frame_buf_size=0;
 volatile uint8_t rx_buffer_read=0; 
 volatile uint8_t rx_buffer_write=0;
 
@@ -57,13 +58,19 @@ void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
 }
 
 //*****************************************************************************
-tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset, unsigned char _N2k_CAN_int_pin) : tNMEA2000(), N2kCAN() {
+tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset, 
+                             unsigned char _N2k_CAN_int_pin, uint16_t _rx_frame_buf_size) : tNMEA2000(), N2kCAN() {
   IsOpen=false;
   N2k_CAN_CS_pin=_N2k_CAN_CS_pin;
   N2k_CAN_clockset=_N2k_CAN_clockset;
   if (pN2kCAN==0) { // Currently only first instace can use interrupts.
     N2k_CAN_int_pin=_N2k_CAN_int_pin;
-    pN2kCAN=&N2kCAN;
+    if ( UseInterrupt() ) {
+      rx_frame_buf_size=_rx_frame_buf_size;
+      if (rx_frame_buf_size<2) rx_frame_buf_size=2;
+      rx_frame_buff=new tCANFrame[rx_frame_buf_size];
+      pN2kCAN=&N2kCAN;
+    }
   } else {
     N2k_CAN_int_pin=0xff;
   }
@@ -115,7 +122,7 @@ bool tNMEA2000_mcp::CANGetFrame(unsigned long &id, unsigned char &len, unsigned 
         id = rx_frame_buff[rx_buffer_read].id;
         len = rx_frame_buff[rx_buffer_read].len;
         for (int i=0; i<len; buf[i]=rx_frame_buff[rx_buffer_read].buf[i], i++);
-        rx_buffer_read = (rx_buffer_read + 1) % MCP_CAN_RX_BUFFER_SIZE;
+        rx_buffer_read = (rx_buffer_read + 1) % rx_frame_buf_size;
         HasFrame=( (id!=0) && (len!=0) );      
       }
       SREG = SaveSREG;   // restore the interrupt flag
@@ -142,7 +149,7 @@ void CanInterrupt() {
   // If either the bus is saturated or the MCU is busy, both RX buffers may be in use and
   // reading a single message does not clear the IRQ conditon.
   while ( CAN_MSGAVAIL == pN2kCAN->checkReceive() ) {           // check if data coming
-    uint8_t temp = (rx_buffer_write + 1) % MCP_CAN_RX_BUFFER_SIZE;
+    uint8_t temp = (rx_buffer_write + 1) % rx_frame_buf_size;
     uint32_t id;
     unsigned char len;
     unsigned char buf[8];

@@ -55,7 +55,9 @@ protected:
     bool UseInterrupt() { return N2k_CAN_int_pin!=0xff; }
     
 public:
-    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz, unsigned char _N2k_CAN_int_pin = 0xff);
+    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz, 
+                  unsigned char _N2k_CAN_int_pin = 0xff, uint16_t rx_frame_buf_size=MCP_CAN_RX_BUFFER_SIZE);
+    void SetSPI(SPIClass *_pSPI) { N2kCAN.setSPI(_pSPI); }
 };
 
 #endif
