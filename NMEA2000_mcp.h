@@ -1,24 +1,24 @@
 /* 
 NMEA2000_mcp.h
 
-2015-2016 Copyright (c) Kave Oy, www.kave.fi  All right reserved.
+Copyright (c) 2015-2016 Timo Lappalainen, Kave Oy, www.kave.fi
 
-Author: Timo Lappalainen
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-
-  1301  USA
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   
 Inherited NMEA2000 object for Arduino CAN_BUS shield or any MCP2515 CAN controller
 based setup. See also NMEA2000 library.
@@ -30,9 +30,9 @@ based setup. See also NMEA2000 library.
 // CAN_BUS_shield libraries will be originally found on https://github.com/Seeed-Studio/CAN_BUS_Shield
 // That does not work completely with N2k or with Maple mini. So there is developed
 // branch found on https://github.com/peppeve/CAN_BUS_Shield 
-#include <mcp_can.h>
-#include <NMEA2000.h> 
-#include <N2kMsg.h>
+#include "mcp_can.h"
+#include "NMEA2000.h" 
+#include "N2kMsg.h"
 
 // Define size of 
 #ifndef MCP_CAN_RX_BUFFER_SIZE
@@ -56,7 +56,7 @@ protected:
     
 public:
     tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz, 
-                  unsigned char _N2k_CAN_int_pin = 0xff, uint16_t rx_frame_buf_size=MCP_CAN_RX_BUFFER_SIZE);
+                  unsigned char _N2k_CAN_int_pin = 0xff, uint16_t _rx_frame_buf_size=MCP_CAN_RX_BUFFER_SIZE);
     void SetSPI(SPIClass *_pSPI) { N2kCAN.setSPI(_pSPI); }
 };
 
