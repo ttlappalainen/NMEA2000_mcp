@@ -1,7 +1,7 @@
 /* 
 NMEA2000_mcp.cpp
 
-Copyright (c) 2015-2016 Timo Lappalainen, Kave Oy, www.kave.fi
+Copyright (c) 2015-2017 Timo Lappalainen, Kave Oy, www.kave.fi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -49,7 +49,8 @@ void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
   
   if (id!=0) {
     CanIdToN2k(id,prio,pgn,src,dst);
-    Serial.print("pgn: "); Serial.print(pgn); Serial.print(", prio: "); Serial.print(prio);
+    Serial.print(millis());
+    Serial.print(": pgn: "); Serial.print(pgn); Serial.print(", prio: "); Serial.print(prio);
     Serial.print(", src: "); Serial.print(src); Serial.print(", dst: "); Serial.print(dst); 
   } else {
     Serial.print("id: "); Serial.print(id);
@@ -68,7 +69,6 @@ tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_C
     if ( UseInterrupt() ) {
       rx_frame_buf_size=_rx_frame_buf_size;
       if (rx_frame_buf_size<2) rx_frame_buf_size=2;
-      rx_frame_buff=new tCANFrame[rx_frame_buf_size];
       pN2kCAN=&N2kCAN;
     }
   } else {
@@ -101,6 +101,12 @@ bool tNMEA2000_mcp::CANOpen() {
     if (IsOpen && UseInterrupt() ) {
       rx_buffer_read=0;
       rx_buffer_write=0;
+      if ( MaxCANReceiveFrames==0 ) { 
+        MaxCANReceiveFrames=rx_frame_buf_size;
+      } else {
+        rx_frame_buf_size=MaxCANReceiveFrames;
+      }
+      rx_frame_buff=new tCANFrame[MaxCANReceiveFrames];
       attachInterrupt(digitalPinToInterrupt(N2k_CAN_int_pin), CanInterrupt, FALLING);
     }    
     
@@ -135,7 +141,7 @@ bool tNMEA2000_mcp::CANGetFrame(unsigned long &id, unsigned char &len, unsigned 
       }
     }
     
-//    if (HasFrame) PrintDecodedCanIdAndLen(id,len);
+    // if (HasFrame) PrintDecodedCanIdAndLen(id,len);
     
     return HasFrame;
 }
