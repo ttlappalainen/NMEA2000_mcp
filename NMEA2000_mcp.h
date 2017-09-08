@@ -49,15 +49,68 @@ private:
   bool IsOpen;
   
 protected:
+  struct tCANFrame {
+    uint32_t id; // can identifier
+    uint8_t len; // length of data
+    uint8_t buf[8];
+  };
+
+  class tFrameBuffer {
+  protected:
+    volatile size_t head;
+    volatile size_t tail;
+    volatile size_t count;
+    volatile size_t size;
+    volatile tCANFrame *buffer;
+  public:
+    tFrameBuffer(size_t _size) : head(0), tail(0), count(0), size(_size) { if ( size<2 ) size=2; buffer=new tCANFrame[size]; }
+
+    bool AddFrame(unsigned long id, unsigned char len, const unsigned char *buf) volatile {
+      
+      if ( count==size || len>8 ) return false;
+      
+      buffer[head].id=id;
+      buffer[head].len=len;
+      for (uint8_t i=0; i<len; buffer[head].buf[i]=buf[i], i++);
+      head = (head + 1) % size;
+      count++;
+      
+      return true;
+    }
+
+    bool GetFrame(unsigned long &id, unsigned char &len, unsigned char *buf) volatile {
+      if ( IsEmpty() ) return false;
+
+      id = buffer[tail].id;
+      len = buffer[tail].len;
+      for (int i=0; i<len; buf[i]=buffer[tail].buf[i], i++);
+      tail = (tail + 1) % size;
+      count--;
+      return ( (id!=0) && (len!=0) );      
+    }
+
+    bool IsEmpty() volatile { return (count == 0); }
+  };
+
+protected:
+  // volatile INT8U CanIntChk;
+  volatile tFrameBuffer *pRxBuffer;
+  volatile tFrameBuffer *pTxBuffer;
+  volatile tFrameBuffer *pTxBufferFastPacket;
+
+protected:
     bool CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf, bool wait_sent=true);
     bool CANOpen();
     bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf);
     bool UseInterrupt() { return N2k_CAN_int_pin!=0xff; }
+    void InitCANFrameBuffers();
     
 public:
     tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz, 
                   unsigned char _N2k_CAN_int_pin = 0xff, uint16_t _rx_frame_buf_size=MCP_CAN_RX_BUFFER_SIZE);
     void SetSPI(SPIClass *_pSPI) { N2kCAN.setSPI(_pSPI); }
+    
+    void InterruptHandler();
 };
 
 #endif
