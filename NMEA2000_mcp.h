@@ -1,7 +1,7 @@
-/* 
+/*
 NMEA2000_mcp.h
 
-Copyright (c) 2015-2016 Timo Lappalainen, Kave Oy, www.kave.fi
+Copyright (c) 2015-2017 Timo Lappalainen, Kave Oy, www.kave.fi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -19,7 +19,7 @@ PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIG
 HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
+
 Inherited NMEA2000 object for Arduino CAN_BUS shield or any MCP2515 CAN controller
 based setup. See also NMEA2000 library.
 */
@@ -29,14 +29,14 @@ based setup. See also NMEA2000 library.
 
 // CAN_BUS_shield libraries will be originally found on https://github.com/Seeed-Studio/CAN_BUS_Shield
 // That does not work completely with N2k or with Maple mini. So there is developed
-// branch found on https://github.com/peppeve/CAN_BUS_Shield 
+// branch found on https://github.com/ttlappalainen/CAN_BUS_Shield
 #include "mcp_can.h"
-#include "NMEA2000.h" 
+#include "NMEA2000.h"
 #include "N2kMsg.h"
 
-// Define size of 
+// Define size of
 #ifndef MCP_CAN_RX_BUFFER_SIZE
-#define MCP_CAN_RX_BUFFER_SIZE 50 
+#define MCP_CAN_RX_BUFFER_SIZE 50
 #endif
 
 class tNMEA2000_mcp : public tNMEA2000
@@ -47,7 +47,7 @@ private:
   unsigned char N2k_CAN_clockset;
   unsigned char N2k_CAN_int_pin;
   bool IsOpen;
-  
+
 protected:
   struct tCANFrame {
     uint32_t id; // can identifier
@@ -66,15 +66,16 @@ protected:
     tFrameBuffer(size_t _size) : head(0), tail(0), count(0), size(_size) { if ( size<2 ) size=2; buffer=new tCANFrame[size]; }
 
     bool AddFrame(unsigned long id, unsigned char len, const unsigned char *buf) volatile {
-      
+
       if ( count==size || len>8 ) return false;
-      
+
       buffer[head].id=id;
       buffer[head].len=len;
+      len=min(len,8);
       for (uint8_t i=0; i<len; buffer[head].buf[i]=buf[i], i++);
       head = (head + 1) % size;
       count++;
-      
+
       return true;
     }
 
@@ -83,10 +84,10 @@ protected:
 
       id = buffer[tail].id;
       len = buffer[tail].len;
-      for (int i=0; i<len; buf[i]=buffer[tail].buf[i], i++);
+      for (uint8_t i=0; i<len; buf[i]=buffer[tail].buf[i], i++);
       tail = (tail + 1) % size;
       count--;
-      return ( (id!=0) && (len!=0) );      
+      return ( (id!=0) && (len!=0) );
     }
 
     bool IsEmpty() volatile { return (count == 0); }
@@ -104,12 +105,12 @@ protected:
     bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf);
     bool UseInterrupt() { return N2k_CAN_int_pin!=0xff; }
     void InitCANFrameBuffers();
-    
+
 public:
-    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz, 
+    tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz,
                   unsigned char _N2k_CAN_int_pin = 0xff, uint16_t _rx_frame_buf_size=MCP_CAN_RX_BUFFER_SIZE);
     void SetSPI(SPIClass *_pSPI) { N2kCAN.setSPI(_pSPI); }
-    
+
     void InterruptHandler();
 };
 

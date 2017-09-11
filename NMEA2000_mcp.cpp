@@ -1,4 +1,4 @@
-/* 
+/*
 NMEA2000_mcp.cpp
 
 Copyright (c) 2015-2017 Timo Lappalainen, Kave Oy, www.kave.fi
@@ -21,7 +21,7 @@ CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFT
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "NMEA2000_mcp.h" 
+#include "NMEA2000_mcp.h"
 
 struct tCANFrame {
   uint32_t id; // can identifier
@@ -29,7 +29,7 @@ struct tCANFrame {
   uint8_t buf[8];
 };
 
-bool CanInUse=false; 
+bool CanInUse=false;
 tNMEA2000_mcp *pNMEA2000_mcp1=0;
 
 void CanIdToN2k(unsigned long id, unsigned char &prio, unsigned long &pgn, unsigned char &src, unsigned char &dst);
@@ -41,12 +41,12 @@ void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
   unsigned long pgn;
   unsigned char src;
   unsigned char dst;
-  
+
   if (id!=0) {
     CanIdToN2k(id,prio,pgn,src,dst);
     Serial.print(millis());
     Serial.print(": pgn: "); Serial.print(pgn); Serial.print(", prio: "); Serial.print(prio);
-    Serial.print(", src: "); Serial.print(src); Serial.print(", dst: "); Serial.print(dst); 
+    Serial.print(", src: "); Serial.print(src); Serial.print(", dst: "); Serial.print(dst);
   } else {
     Serial.print("id: "); Serial.print(id);
   }
@@ -54,10 +54,10 @@ void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
 }
 
 //*****************************************************************************
-tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset, 
+tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset,
                              unsigned char _N2k_CAN_int_pin, uint16_t _rx_frame_buf_size) : tNMEA2000(), N2kCAN() {
   // CanIntChk=0;
-  
+
   IsOpen=false;
   N2k_CAN_CS_pin=_N2k_CAN_CS_pin;
   N2k_CAN_clockset=_N2k_CAN_clockset;
@@ -87,25 +87,28 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
         if ( !pTxBuf->AddFrame(id,len,buf) ) result=CAN_FAILTX;
       } else { // If we did not use buffer, send it directly
         result=N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff);
-        if ( result!=CAN_OK || !pTxBuf->AddFrame(id,len,buf) ) result=CAN_FAILTX;
+        if ( result!=CAN_OK ) {
+          result=( pTxBuf->AddFrame(id,len,buf) ? CAN_OK : CAN_FAILTX );
+        }
       }
       SREG = SaveSREG;   // restore the interrupt flag
     } else {
       result=N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff);
     }
- 
-//    Serial.println(result);
+
+    // Serial.println(result);
     // if ( CanIntChk ) { Serial.print("CAN int chk: "); Serial.println(CanIntChk); CanIntChk=0; }
-    return (result==CAN_OK); 
+
+    return (result==CAN_OK);
 }
 
 //*****************************************************************************
 void tNMEA2000_mcp::InitCANFrameBuffers() {
     if ( UseInterrupt() ) {
-      if (MaxCANReceiveFrames<2 ) MaxCANSendFrames=2;
+      if (MaxCANReceiveFrames<2 ) MaxCANReceiveFrames=2;
       if (MaxCANSendFrames<10 ) MaxCANSendFrames=10;
       uint16_t CANGlobalBufSize=MaxCANSendFrames-4;
-      MaxCANSendFrames=4;  // we do not need libary internal buffer since driver has them.
+      MaxCANSendFrames=4;  // we do not need much libary internal buffer since driver has them.
       uint16_t FastPacketBufferSize= (CANGlobalBufSize * 9 / 10);
       CANGlobalBufSize-=FastPacketBufferSize;
       pRxBuffer=new tFrameBuffer(MaxCANReceiveFrames);
@@ -119,20 +122,20 @@ void tNMEA2000_mcp::InitCANFrameBuffers() {
 //*****************************************************************************
 bool tNMEA2000_mcp::CANOpen() {
     if (IsOpen) return true;
-    
+
     if (CanInUse) return false; // currently prevent accidental second instance. Maybe possible in future.
-    
+
     N2kCAN.init_CS(N2k_CAN_CS_pin);
     N2kCAN.reserveTxBuffers(1); // Reserve one buffer for fast packet.
     IsOpen=(N2kCAN.begin(CAN_250KBPS,N2k_CAN_clockset)==CAN_OK);
-    
+
     if (IsOpen && UseInterrupt() ) {
       N2kCAN.enableTxInterrupt();
       attachInterrupt(digitalPinToInterrupt(N2k_CAN_int_pin), Can1Interrupt, FALLING);
-    }    
-    
+    }
+
     CanInUse=IsOpen;
-    
+
     return IsOpen;
 }
 
@@ -149,13 +152,13 @@ bool tNMEA2000_mcp::CANGetFrame(unsigned long &id, unsigned char &len, unsigned 
       if ( CAN_MSGAVAIL == N2kCAN.checkReceive() ) {           // check if data coming
           N2kCAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
           id = N2kCAN.getCanId();
-          
+
           HasFrame=true;
       }
     }
-    
+
     // if (HasFrame) PrintDecodedCanIdAndLen(id,len);
-    
+
     return HasFrame;
 }
 
@@ -177,14 +180,14 @@ void tNMEA2000_mcp::InterruptHandler() {
 
     RxTxStatus=N2kCAN.readRxTxStatus();  // One single read on every loop
     INT8U tempRxTxStatus=RxTxStatus;      // Use local status inside loop
-    
+
     while ( N2kCAN.checkClearRxStatus(&tempRxTxStatus)!=0 ) {           // check if data is coming
       N2kCAN.readMsgBuf(&len,buf);
       id=N2kCAN.getCanId();
 //      asm volatile ("" : : : "memory");
       pRxBuffer->AddFrame(id,len,buf);
     }
-    
+
     if ( !pTxBuffer->IsEmpty() ) { // Do we have something to send on single frame buffer
       while ( N2kCAN.checkClearTxStatus(&tempRxTxStatus)!=0 && pTxBuffer->GetFrame(id,len,buf) ) {
         N2kCAN.trySendMsgBuf(id, 1, len, buf);
@@ -192,7 +195,7 @@ void tNMEA2000_mcp::InterruptHandler() {
     } else { // Nothing to send, so clear flags
       N2kCAN.clearBufferTransmitIfFlags();
     }
-    
+
     if ( !pTxBufferFastPacket->IsEmpty() ) { // Do we have something to send on fast packet frame buffer
       // CanIntChk=tempRxTxStatus;
       if ( N2kCAN.checkClearTxStatus(&tempRxTxStatus,N2kCAN.getLastTxBuffer())!=0 ) {
@@ -202,7 +205,7 @@ void tNMEA2000_mcp::InterruptHandler() {
     } else { // Nothing to send, so clear flag for this buffer
       N2kCAN.clearBufferTransmitIfFlags(N2kCAN.getLastTxBuffer());
     }
-    
+
   } while ( RxTxStatus!=0 );
 }
 
