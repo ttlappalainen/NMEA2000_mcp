@@ -74,7 +74,7 @@ tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_C
 
 //*****************************************************************************
 bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf, bool wait_sent) {
-  INT8U result=CAN_OK;
+  bool result;
 
     // Also sending should be changed to be done by interrupt. This requires modifications for mcp_can.
     uint8_t SaveSREG = SREG;   // save interrupt flag
@@ -84,22 +84,20 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
       pTxBuf=(wait_sent?pTxBufferFastPacket:pTxBuffer);
       // If buffer is not empty, it has pending messages, so add new message to it
       if ( !pTxBuf->IsEmpty() ) {
-        if ( !pTxBuf->AddFrame(id,len,buf) ) result=CAN_FAILTX;
+        result=pTxBuf->AddFrame(id,len,buf);
       } else { // If we did not use buffer, send it directly
-        result=N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff);
-        if ( result!=CAN_OK ) {
-          result=( pTxBuf->AddFrame(id,len,buf) ? CAN_OK : CAN_FAILTX );
-        }
+        result=(N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
+        if ( !result ) result=pTxBuf->AddFrame(id,len,buf);
       }
       SREG = SaveSREG;   // restore the interrupt flag
     } else {
-      result=N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff);
+      result=(N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
     }
 
     // Serial.println(result);
     // if ( CanIntChk ) { Serial.print("CAN int chk: "); Serial.println(CanIntChk); CanIntChk=0; }
 
-    return (result==CAN_OK);
+    return result;
 }
 
 //*****************************************************************************
