@@ -23,6 +23,25 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "NMEA2000_mcp.h"
 
+//#define DEBUG_MCP_CAN_SPEED 1
+#if defined(DEBUG_MCP_CAN_SPEED)
+  unsigned long McpElapsed=0;
+  unsigned long McpStart;
+# define DbgStartMcpSpeed McpStart=micros()
+# define DbgEndMcpSpeed McpElapsed=micros()-McpStart
+# define DbgTestMcpSpeed if ( McpElapsed>0 )
+# define DbgClearMcpSpeed McpElapsed=0
+# define DbgPrintN2kMcpSpeed(fmt, args...)     Serial.print (fmt , ## args)
+# define DbgPrintLnN2kMcpSpeed(fmt, args...)   Serial.println (fmt , ## args)
+#else
+# define DbgPrintN2kMcpSpeed(fmt, args...)
+# define DbgPrintLnN2kMcpSpeed(fmt, args...)
+# define DbgStartMcpSpeed
+# define DbgEndMcpSpeed
+# define DbgTestMcpSpeed
+# define DbgClearMcpSpeed
+#endif
+
 struct tCANFrame {
   uint32_t id; // can identifier
   uint8_t len; // length of data
@@ -56,7 +75,6 @@ void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
 //*****************************************************************************
 tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset,
                              unsigned char _N2k_CAN_int_pin, uint16_t _rx_frame_buf_size) : tNMEA2000(), N2kCAN() {
-  // CanIntChk=0;
 
   IsOpen=false;
   N2k_CAN_CS_pin=_N2k_CAN_CS_pin;
@@ -86,16 +104,20 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
       if ( !pTxBuf->IsEmpty() ) {
         result=pTxBuf->AddFrame(id,len,buf);
       } else { // If we did not use buffer, send it directly
-        result=(N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
-        if ( !result ) result=pTxBuf->AddFrame(id,len,buf);
+        DbgStartMcpSpeed;
+        result=(N2kCAN.trySendExtMsgBuf(id, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
+        DbgEndMcpSpeed;
+        if ( !result ) {
+          DbgClearMcpSpeed;
+          result=pTxBuf->AddFrame(id,len,buf);
+        }
       }
       SREG = SaveSREG;   // restore the interrupt flag
     } else {
-      result=(N2kCAN.trySendMsgBuf(id, 1, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
+      result=(N2kCAN.trySendExtMsgBuf(id, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
     }
 
-    // Serial.println(result);
-    // if ( CanIntChk ) { Serial.print("CAN int chk: "); Serial.println(CanIntChk); CanIntChk=0; }
+    DbgTestMcpSpeed { DbgPrintN2kMcpSpeed("Send elapsed: "); DbgPrintLnN2kMcpSpeed(McpElapsed); }
 
     return result;
 }
@@ -165,47 +187,71 @@ bool tNMEA2000_mcp::CANGetFrame(unsigned long &id, unsigned char &len, unsigned 
 // been defined volatile. see. http://blog.regehr.org/archives/28
 // In my tests I have used only to receive data or transmit data but not both.
 void tNMEA2000_mcp::InterruptHandler() {
+#if defined(DEBUG_NMEA2000_ISR)
+  unsigned long ISRStart=micros();
+#endif
   INT8U RxTxStatus;
+
   // Iterate over all pending messages.
   // If either the bus is saturated or the MCU is busy, both RX buffers may be in use and
   // reading a single message does not clear the IRQ conditon.
   // Also we need to check and clear all transmit flags to clear IRQ condition.
   // Note that this handler expects that Wakeup and Error interrupts has not been enabled.
   do {
-    uint32_t id;
-    unsigned char len;
-    unsigned char buf[8];
-
     RxTxStatus=N2kCAN.readRxTxStatus();  // One single read on every loop
     INT8U tempRxTxStatus=RxTxStatus;      // Use local status inside loop
+    INT8U status;
+    volatile tCANFrame *frame;
 
-    while ( N2kCAN.checkClearRxStatus(&tempRxTxStatus)!=0 ) {           // check if data is coming
-      N2kCAN.readMsgBuf(&len,buf);
-      id=N2kCAN.getCanId();
+    while ( (status=N2kCAN.checkClearRxStatus(&tempRxTxStatus))!=0 ) {           // check if data is coming
+      if ( (frame=pRxBuffer->GetWriteFrame())!=0 ) {
+        INT8U ext,rtr;
+        N2kCAN.readMsgBufID(status,&(frame->id),&ext,&rtr,&(frame->len),frame->buf);
+        pRxBuffer->IncWrite();
 //      asm volatile ("" : : : "memory");
-      pRxBuffer->AddFrame(id,len,buf);
-    }
-
-    if ( !pTxBuffer->IsEmpty() ) { // Do we have something to send on single frame buffer
-      while ( N2kCAN.checkClearTxStatus(&tempRxTxStatus)!=0 && pTxBuffer->GetFrame(id,len,buf) ) {
-        N2kCAN.trySendMsgBuf(id, 1, len, buf);
+        //N2kCAN.readMsgBuf(&len,buf);
+        //id=N2kCAN.getCanId();
+        //pRxBuffer->AddFrame(id,len,buf);
       }
-    } else { // Nothing to send, so clear flags
-      N2kCAN.clearBufferTransmitIfFlags();
     }
 
     if ( !pTxBufferFastPacket->IsEmpty() ) { // Do we have something to send on fast packet frame buffer
       // CanIntChk=tempRxTxStatus;
-      if ( N2kCAN.checkClearTxStatus(&tempRxTxStatus,N2kCAN.getLastTxBuffer())!=0 ) {
-        pTxBufferFastPacket->GetFrame(id,len,buf);
-        N2kCAN.trySendMsgBuf(id, 1, len, buf,N2kCAN.getLastTxBuffer());
+      if ( (status=N2kCAN.checkClearTxStatus(&tempRxTxStatus,N2kCAN.getLastTxBuffer()))!=0 ) {
+        frame=pTxBufferFastPacket->GetReadFrame();
+        N2kCAN.SendExtMsgBuf(status,frame->id, frame->len, frame->buf);
+        pTxBufferFastPacket->DecRead();
       }
     } else { // Nothing to send, so clear flag for this buffer
-      N2kCAN.clearBufferTransmitIfFlags(N2kCAN.getLastTxBuffer());
+      status=N2kCAN.checkClearTxStatus(&tempRxTxStatus,N2kCAN.getLastTxBuffer());
+      N2kCAN.clearBufferTransmitIfFlags(status);
     }
 
+    if ( !pTxBuffer->IsEmpty() ) { // Do we have something to send on single frame buffer
+      while ( (status=N2kCAN.checkClearTxStatus(&tempRxTxStatus))!=0 && 
+              (frame=pTxBuffer->GetReadFrame())!=0 ) {
+        N2kCAN.SendExtMsgBuf(status, frame->id, frame->len, frame->buf);
+        pTxBuffer->DecRead();
+      }
+    } 
+
+    // Finally clear rest transmit flags
+    N2kCAN.clearBufferTransmitIfFlags(tempRxTxStatus);
+
   } while ( RxTxStatus!=0 );
+  
+#if defined(DEBUG_NMEA2000_ISR)
+  ISRElapsed=micros()-ISRStart;
+#endif
 }
+
+#if defined(DEBUG_NMEA2000_ISR)
+//*****************************************************************************
+void tNMEA2000_mcp::TestISR() {    // if ( CanIntChk ) { Serial.print("CAN int chk: "); Serial.println(CanIntChk); CanIntChk=0; }
+    if ( ISRElapsed ) { Serial.print("ISR Elapsed: "); Serial.println(ISRElapsed); ISRElapsed=0; }
+}
+#endif
+
 
 //*****************************************************************************
 void Can1Interrupt() {

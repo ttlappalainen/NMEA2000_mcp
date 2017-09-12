@@ -65,6 +65,30 @@ protected:
   public:
     tFrameBuffer(size_t _size) : head(0), tail(0), count(0), size(_size) { if ( size<2 ) size=2; buffer=new tCANFrame[size]; }
 
+    void IncWrite() volatile {
+      if ( count==size ) return;
+      head = (head + 1) % size;
+      count++;
+    }
+    
+    void DecRead() volatile {
+      if ( count==0 ) return;
+      tail = (tail + 1) % size;
+      count--;
+    }
+    
+    volatile tCANFrame *GetWriteFrame() volatile {
+      if ( count==size ) return 0;
+      
+      return &(buffer[head]);
+    }
+
+    volatile tCANFrame *GetReadFrame() volatile {
+      if ( count==0 ) return 0;
+      
+      return &(buffer[tail]);
+    }
+
     bool AddFrame(unsigned long id, unsigned char len, const unsigned char *buf) volatile {
 
       if ( count==size || len>8 ) return false;
@@ -73,28 +97,33 @@ protected:
       buffer[head].len=len;
       len=min(len,8);
       for (uint8_t i=0; i<len; buffer[head].buf[i]=buf[i], i++);
-      head = (head + 1) % size;
-      count++;
+      IncWrite();
 
       return true;
     }
-
+    
     bool GetFrame(unsigned long &id, unsigned char &len, unsigned char *buf) volatile {
       if ( IsEmpty() ) return false;
 
       id = buffer[tail].id;
       len = buffer[tail].len;
       for (uint8_t i=0; i<len; buf[i]=buffer[tail].buf[i], i++);
-      tail = (tail + 1) % size;
-      count--;
+      DecRead();
       return ( (id!=0) && (len!=0) );
     }
 
     bool IsEmpty() volatile { return (count == 0); }
+    
+    void Clear() volatile { count=0; head=0; tail=0; }
   };
 
+#if defined(DEBUG_NMEA2000_ISR)
 protected:
-  // volatile INT8U CanIntChk;
+  volatile unsigned long ISRElapsed;
+  virtual void TestISR();
+#endif
+  
+  protected:
   volatile tFrameBuffer *pRxBuffer;
   volatile tFrameBuffer *pTxBuffer;
   volatile tFrameBuffer *pTxBufferFastPacket;
@@ -104,7 +133,7 @@ protected:
     bool CANOpen();
     bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf);
     bool UseInterrupt() { return N2k_CAN_int_pin!=0xff; }
-    void InitCANFrameBuffers();
+    virtual void InitCANFrameBuffers();
 
 public:
     tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset = MCP_16MHz,
