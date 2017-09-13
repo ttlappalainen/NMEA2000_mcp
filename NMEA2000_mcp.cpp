@@ -190,7 +190,7 @@ void tNMEA2000_mcp::InterruptHandler() {
 #if defined(DEBUG_NMEA2000_ISR)
   unsigned long ISRStart=micros();
 #endif
-  INT8U RxTxStatus;
+  byte RxTxStatus;
 
   // Iterate over all pending messages.
   // If either the bus is saturated or the MCU is busy, both RX buffers may be in use and
@@ -199,13 +199,13 @@ void tNMEA2000_mcp::InterruptHandler() {
   // Note that this handler expects that Wakeup and Error interrupts has not been enabled.
   do {
     RxTxStatus=N2kCAN.readRxTxStatus();  // One single read on every loop
-    INT8U tempRxTxStatus=RxTxStatus;      // Use local status inside loop
-    INT8U status;
+    byte tempRxTxStatus=RxTxStatus;      // Use local status inside loop
+    byte status;
     volatile tCANFrame *frame;
 
     while ( (status=N2kCAN.checkClearRxStatus(&tempRxTxStatus))!=0 ) {           // check if data is coming
       if ( (frame=pRxBuffer->GetWriteFrame())!=0 ) {
-        INT8U ext,rtr;
+        byte ext,rtr;
         N2kCAN.readMsgBufID(status,&(frame->id),&ext,&rtr,&(frame->len),frame->buf);
         pRxBuffer->IncWrite();
 //      asm volatile ("" : : : "memory");
@@ -219,7 +219,7 @@ void tNMEA2000_mcp::InterruptHandler() {
       // CanIntChk=tempRxTxStatus;
       if ( (status=N2kCAN.checkClearTxStatus(&tempRxTxStatus,N2kCAN.getLastTxBuffer()))!=0 ) {
         frame=pTxBufferFastPacket->GetReadFrame();
-        N2kCAN.SendExtMsgBuf(status,frame->id, frame->len, frame->buf);
+        N2kCAN.sendExtMsgBuf(status,frame->id, frame->len, frame->buf);
         pTxBufferFastPacket->DecRead();
       }
     } else { // Nothing to send, so clear flag for this buffer
@@ -230,7 +230,7 @@ void tNMEA2000_mcp::InterruptHandler() {
     if ( !pTxBuffer->IsEmpty() ) { // Do we have something to send on single frame buffer
       while ( (status=N2kCAN.checkClearTxStatus(&tempRxTxStatus))!=0 && 
               (frame=pTxBuffer->GetReadFrame())!=0 ) {
-        N2kCAN.SendExtMsgBuf(status, frame->id, frame->len, frame->buf);
+        N2kCAN.sendExtMsgBuf(status, frame->id, frame->len, frame->buf);
         pTxBuffer->DecRead();
       }
     } 
