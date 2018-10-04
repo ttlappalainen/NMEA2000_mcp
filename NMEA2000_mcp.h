@@ -1,7 +1,7 @@
 /*
 NMEA2000_mcp.h
 
-Copyright (c) 2015-2017 Timo Lappalainen, Kave Oy, www.kave.fi
+Copyright (c) 2015-2018 Timo Lappalainen, Kave Oy, www.kave.fi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -95,7 +95,7 @@ protected:
 
       buffer[head].id=id;
       buffer[head].len=len;
-      len=min(len,8);
+      len=(len<8?len:8);
       for (uint8_t i=0; i<len; buffer[head].buf[i]=buf[i], i++);
       IncWrite();
 

@@ -9,6 +9,8 @@ https://github.com/ttlappalainen/CAN_BUS_Shield until changes has been implement
 to original https://github.com/Seeed-Studio/CAN_BUS_Shield library.
 
 == Changes ==
+04.10.2018 Get rid of min(...) for better compatibility.
+
 12.09.2017 Improved ISR speed 50% by improving mcp_can.
 
 08.09.2017 Fix for sending. Both receiving and sending will be handled by interrupt. Requires improved mcp_can.
@@ -19,7 +21,7 @@ to original https://github.com/Seeed-Studio/CAN_BUS_Shield library.
 
 == License ==
 
-2015-2017 Copyright (c) Kave Oy, www.kave.fi  All right reserved.
+2015-2018 Copyright (c) Kave Oy, www.kave.fi  All right reserved.
 
 Author: Timo Lappalainen
 
