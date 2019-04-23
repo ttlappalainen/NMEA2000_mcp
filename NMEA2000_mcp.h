@@ -1,7 +1,7 @@
 /*
 NMEA2000_mcp.h
 
-Copyright (c) 2015-2018 Timo Lappalainen, Kave Oy, www.kave.fi
+Copyright (c) 2015-2019 Timo Lappalainen, Kave Oy, www.kave.fi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -50,7 +50,7 @@ private:
 
 protected:
   struct tCANFrame {
-    uint32_t id; // can identifier
+    unsigned long id; // can identifier
     uint8_t len; // length of data
     uint8_t buf[8];
   };

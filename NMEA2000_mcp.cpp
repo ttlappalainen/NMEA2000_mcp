@@ -1,7 +1,7 @@
 /*
 NMEA2000_mcp.cpp
 
-Copyright (c) 2015-2018 Timo Lappalainen, Kave Oy, www.kave.fi
+Copyright (c) 2015-2019 Timo Lappalainen, Kave Oy, www.kave.fi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -23,7 +23,11 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "NMEA2000_mcp.h"
 
-//#define DEBUG_MCP_CAN_SPEED 1
+#if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_UNO)
+#define USE_SREG 1
+#endif
+
+
 #if defined(DEBUG_MCP_CAN_SPEED)
   unsigned long McpElapsed=0;
   unsigned long McpStart;
@@ -95,10 +99,12 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
   bool result;
 
     // Also sending should be changed to be done by interrupt. This requires modifications for mcp_can.
+#ifdef USE_SREG
     uint8_t SaveSREG = SREG;   // save interrupt flag
+#endif
     volatile tFrameBuffer *pTxBuf=0;
     if ( UseInterrupt() ) {
-      cli();   // disable interrupts
+      noInterrupts();   // disable interrupts
       pTxBuf=(wait_sent?pTxBufferFastPacket:pTxBuffer);
       // If buffer is not empty, it has pending messages, so add new message to it
       if ( !pTxBuf->IsEmpty() ) {
@@ -112,7 +118,11 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
           result=pTxBuf->AddFrame(id,len,buf);
         }
       }
+#ifdef USE_SREG
       SREG = SaveSREG;   // restore the interrupt flag
+#else
+      interrupts();
+#endif  
     } else {
       result=(N2kCAN.trySendExtMsgBuf(id, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
     }
@@ -150,8 +160,18 @@ bool tNMEA2000_mcp::CANOpen() {
     IsOpen=(N2kCAN.begin(CAN_250KBPS,N2k_CAN_clockset)==CAN_OK);
 
     if (IsOpen && UseInterrupt() ) {
+#ifdef USE_SREG
+    uint8_t SaveSREG = SREG;   // save interrupt flag
+#endif
+      noInterrupts();
       N2kCAN.enableTxInterrupt();
       attachInterrupt(digitalPinToInterrupt(N2k_CAN_int_pin), Can1Interrupt, FALLING);
+      InterruptHandler(); // read out possible data to clear isr bit.
+#ifdef USE_SREG
+      SREG = SaveSREG;   // restore the interrupt flag
+#else
+      interrupts();
+#endif  
     }
 
     CanInUse=IsOpen;
@@ -164,10 +184,16 @@ bool tNMEA2000_mcp::CANGetFrame(unsigned long &id, unsigned char &len, unsigned 
   bool HasFrame=false;
 
     if ( UseInterrupt() ) {
+#ifdef USE_SREG
       uint8_t SaveSREG = SREG;   // save interrupt flag
-      cli();   // disable interrupts
+#endif  
+      noInterrupts();   // disable interrupts
       HasFrame=pRxBuffer->GetFrame(id,len,buf);
+#ifdef USE_SREG
       SREG = SaveSREG;   // restore the interrupt flag
+#else
+      interrupts();
+#endif  
     } else {
       if ( CAN_MSGAVAIL == N2kCAN.checkReceive() ) {           // check if data coming
           N2kCAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
