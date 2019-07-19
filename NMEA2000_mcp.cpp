@@ -238,6 +238,10 @@ void tNMEA2000_mcp::InterruptHandler() {
         //N2kCAN.readMsgBuf(&len,buf);
         //id=N2kCAN.getCanId();
         //pRxBuffer->AddFrame(id,len,buf);
+      } else { // Buffer full, skip char
+        tCANFrame MissFrame;
+        byte ext,rtr;
+        N2kCAN.readMsgBufID(status,&(MissFrame.id),&ext,&rtr,&(MissFrame.len),MissFrame.buf);
       }
     }
 
