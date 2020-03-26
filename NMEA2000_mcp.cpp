@@ -56,7 +56,11 @@ bool CanInUse=false;
 tNMEA2000_mcp *pNMEA2000_mcp1=0;
 
 void CanIdToN2k(unsigned long id, unsigned char &prio, unsigned long &pgn, unsigned char &src, unsigned char &dst);
+#if defined(ESP8266)
+ICACHE_RAM_ATTR void Can1Interrupt();
+#else
 void Can1Interrupt();
+#endif
 
 //*****************************************************************************
 void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
@@ -284,6 +288,10 @@ void tNMEA2000_mcp::TestISR() {    // if ( CanIntChk ) { Serial.print("CAN int c
 
 
 //*****************************************************************************
+#if defined(ESP8266)
+ICACHE_RAM_ATTR void Can1Interrupt() {
+#else
 void Can1Interrupt() {
+#endif
   pNMEA2000_mcp1->InterruptHandler();
 }
