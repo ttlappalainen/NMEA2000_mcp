@@ -9,6 +9,10 @@ https://github.com/ttlappalainen/CAN_BUS_Shield until changes has been implement
 to original https://github.com/Seeed-Studio/CAN_BUS_Shield library.
 
 == Changes ==
+27.03.2020 Added ICACHE_RAM_ATTR to Can1Interrupt by TyphoonSB.
+
+18.07.2019 !Critical fix for interrupt receive. If receive buffer got full, interrupt started to loop and system hanged.
+After fix if buffer gets full, incoming frames will be ignored, but system does not hang.
 
 04.10.2018 Get rid of min(...) for better compatibility.
 
