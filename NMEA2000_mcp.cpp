@@ -82,7 +82,7 @@ void PrintDecodedCanIdAndLen(unsigned long id, unsigned char len) {
 
 //*****************************************************************************
 tNMEA2000_mcp::tNMEA2000_mcp(unsigned char _N2k_CAN_CS_pin, unsigned char _N2k_CAN_clockset,
-                             unsigned char _N2k_CAN_int_pin, uint16_t _rx_frame_buf_size) : tNMEA2000(), N2kCAN() {
+                             unsigned char _N2k_CAN_int_pin, uint16_t _rx_frame_buf_size) : tNMEA2000(), N2kCAN(_N2k_CAN_CS_pin) {
 
   IsOpen=false;
   N2k_CAN_CS_pin=_N2k_CAN_CS_pin;
@@ -115,7 +115,7 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
         result=pTxBuf->AddFrame(id,len,buf);
       } else { // If we did not use buffer, send it directly
         DbgStartMcpSpeed;
-        result=(N2kCAN.trySendExtMsgBuf(id, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
+        result=(N2kCAN.trySendMsgBuf(id, 1, 0, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
         DbgEndMcpSpeed;
         if ( !result ) {
           DbgClearMcpSpeed;
@@ -128,7 +128,7 @@ bool tNMEA2000_mcp::CANSendFrame(unsigned long id, unsigned char len, const unsi
       interrupts();
 #endif  
     } else {
-      result=(N2kCAN.trySendExtMsgBuf(id, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
+      result=(N2kCAN.trySendMsgBuf(id, 1, 0, len, buf, wait_sent?N2kCAN.getLastTxBuffer():0xff)==CAN_OK);
     }
 
     DbgTestMcpSpeed { DbgPrintN2kMcpSpeed("Send elapsed: "); DbgPrintLnN2kMcpSpeed(McpElapsed); }
@@ -153,15 +153,27 @@ void tNMEA2000_mcp::InitCANFrameBuffers() {
     tNMEA2000::InitCANFrameBuffers(); // call main initialization
 }
 
+
+
 //*****************************************************************************
 bool tNMEA2000_mcp::CANOpen() {
     if (IsOpen) return true;
 
     if (CanInUse) return false; // currently prevent accidental second instance. Maybe possible in future.
 
-    N2kCAN.init_CS(N2k_CAN_CS_pin);
     N2kCAN.reserveTxBuffers(1); // Reserve one buffer for fast packet.
-    IsOpen=(N2kCAN.begin(CAN_250KBPS,N2k_CAN_clockset)==CAN_OK);
+    IsOpen=(N2kCAN.begin(CAN_250KBPS, N2k_CAN_clockset)==CAN_OK);
+
+    // Set masks and filters to allow extended CAN IDs (29 Bit, Standard in NMEA2000)
+    // These can be changed at a later point to allow for filtering for certain IDs
+    N2kCAN.init_Mask(0, CAN_STDID, 0); // Mask no Standard-ID bits to be filtered (0x00)
+		N2kCAN.init_Mask(1, CAN_EXTID, 0); // Mask no Extended-ID bits to be filtered (0x00)
+		N2kCAN.init_Filt(0, CAN_STDID, 0); // Init filter #0.0 in mcp2515 for no filtering
+		N2kCAN.init_Filt(1, CAN_STDID, 0); // Init filter #0.1 in mcp2515 for no filtering
+		N2kCAN.init_Filt(2, CAN_EXTID, 0); // Init filter #1.2 in mcp2515 for no filtering
+		N2kCAN.init_Filt(3, CAN_EXTID, 0); // Init filter #1.3 in mcp2515 for no filtering
+		N2kCAN.init_Filt(4, CAN_EXTID, 0); // Init filter #1.4 in mcp2515 for no filtering
+		N2kCAN.init_Filt(5, CAN_EXTID, 0); // Init filter #1.5 in mcp2515 for no filtering
 
     if (IsOpen && UseInterrupt() ) {
 #ifdef USE_SREG
@@ -253,7 +265,7 @@ void tNMEA2000_mcp::InterruptHandler() {
       // CanIntChk=tempRxTxStatus;
       if ( (status=N2kCAN.checkClearTxStatus(&tempRxTxStatus,N2kCAN.getLastTxBuffer()))!=0 ) {
         frame=pTxBufferFastPacket->GetReadFrame();
-        N2kCAN.sendExtMsgBuf(status,frame->id, frame->len, frame->buf);
+        N2kCAN.sendMsgBuf(status, frame->id, 1, 0, frame->len, frame->buf);
         pTxBufferFastPacket->DecRead();
       }
     } else { // Nothing to send, so clear flag for this buffer
@@ -264,7 +276,7 @@ void tNMEA2000_mcp::InterruptHandler() {
     if ( !pTxBuffer->IsEmpty() ) { // Do we have something to send on single frame buffer
       while ( (status=N2kCAN.checkClearTxStatus(&tempRxTxStatus))!=0 && 
               (frame=pTxBuffer->GetReadFrame())!=0 ) {
-        N2kCAN.sendExtMsgBuf(status, frame->id, frame->len, frame->buf);
+        N2kCAN.sendMsgBuf(status, frame->id, 1, 0, frame->len, frame->buf);
         pTxBuffer->DecRead();
       }
     } 
